@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": true,
+    "module": "ESNext",
+    "target": "ESNext",
+    "lib": ["ES2021", "DOM"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["./**/*"],
+  "exclude": ["./_generated"]
+}
