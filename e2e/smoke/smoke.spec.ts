@@ -68,6 +68,18 @@ test.describe("public landing page", () => {
   });
 });
 
+test("the public site never links to admin screens", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+});
+
+test("unknown routes get a branded 404 with a real 404 status", async ({ page }) => {
+  const response = await page.goto("/this-route-does-not-exist");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "This page isn't on the block" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to LendLoop" })).toHaveAttribute("href", "/");
+});
+
 test.describe("app without keys", () => {
   for (const route of PROTECTED_ROUTES) {
     test(`${route} shows the setup notice instead of crashing`, async ({ page }) => {

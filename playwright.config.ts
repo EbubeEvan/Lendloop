@@ -9,7 +9,7 @@ const isCI = Boolean(process.env.CI);
  * by the convex-test suites under tests/convex.
  */
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./e2e/smoke",
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
@@ -23,11 +23,13 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    // CI builds first, so serve the production bundle; locally use the dev server.
-    command: isCI ? `pnpm start --port ${PORT}` : `pnpm dev --port ${PORT}`,
+    // Always a keyless production server: CI has already built; locally build
+    // first. `next start` can run beside your own `next dev` (Next.js allows only
+    // one dev server per project), and the blank keys below are inlined at build.
+    command: isCI ? `pnpm start --port ${PORT}` : `pnpm build && pnpm start --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !isCI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 240_000,
     env: {
       NEXT_PUBLIC_CONVEX_URL: "",
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",

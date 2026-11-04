@@ -13,6 +13,7 @@ next-env.d.ts
 .env.*
 !.env.example
 !.env.convex.example
+!.env.e2e.example
 n8n/.env
 
 # Convex
@@ -25,6 +26,7 @@ coverage
 test-results
 playwright-report
 blob-report
+e2e/.auth
 
 # n8n local data
 n8n/data

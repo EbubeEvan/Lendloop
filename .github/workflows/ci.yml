@@ -61,3 +61,59 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
+
+  e2e-flows:
+    name: Signed-in e2e flows
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Secrets are unavailable to forks; the job also no-ops until they are set.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      NEXT_PUBLIC_CONVEX_URL: ${{ secrets.E2E_CONVEX_URL }}
+      E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+      E2E_BORROWER_EMAIL: ${{ secrets.E2E_BORROWER_EMAIL }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+    steps:
+      - name: Check for e2e secrets
+        id: secrets
+        run: |
+          if [ -n "$CLERK_SECRET_KEY" ] && [ -n "$NEXT_PUBLIC_CONVEX_URL" ] && [ -n "$E2E_OWNER_EMAIL" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::E2E secrets not configured; skipping signed-in flows."
+          fi
+
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+
+      - if: steps.secrets.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - if: steps.secrets.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - if: steps.secrets.outputs.ready == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Signed-in flows
+        if: steps.secrets.outputs.ready == 'true'
+        run: pnpm test:e2e:flows
+
+      - name: Upload Playwright report
+        if: failure() && steps.secrets.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-flows-report
+          path: playwright-report
+          retention-days: 7
