@@ -128,6 +128,22 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // Environment is read in exactly one place per runtime so names, defaults,
+    // and the client/server split are reviewed together.
+    files: ["src/**/*.{ts,tsx}", "convex/**/*.ts"],
+    ignores: ["src/lib/env.ts", "src/lib/env.server.ts", "convex/lib/env.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[object.name='process'][property.name='env']",
+          message:
+            "Read environment variables through src/lib/env.ts (public), src/lib/env.server.ts (secrets), or convex/lib/env.ts.",
+        },
+      ],
+    },
+  },
+  {
     files: ["scripts/**/*.mjs", "n8n/**/*.json"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
