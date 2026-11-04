@@ -83,13 +83,6 @@ http.route({
     if (!eventId || eventId.length > 200) {
       return json({ error: "Missing event id." }, 400);
     }
-    const fresh = await ctx.runMutation(internal.features.automation.internal.consumeReplayKey, {
-      key: `incoming:${eventId}`,
-    });
-    if (!fresh) {
-      return json({ ok: true, duplicate: true });
-    }
-
     let payload: unknown;
     try {
       payload = JSON.parse(body);
@@ -120,6 +113,7 @@ http.route({
         requestId: requestId as never,
         sentAt,
         channel,
+        replayKey: `incoming:${eventId}`,
       });
       return json({ ok: true, ...result });
     } catch {
@@ -143,13 +137,6 @@ http.route({
     }
 
     const eventId = request.headers.get("x-lendloop-event-id");
-    const fresh = await ctx.runMutation(internal.features.automation.internal.consumeReplayKey, {
-      key: `failure:${eventId ?? body.slice(0, 80)}`,
-    });
-    if (!fresh) {
-      return json({ ok: true, duplicate: true });
-    }
-
     let payload: unknown;
     try {
       payload = JSON.parse(body);
@@ -177,6 +164,7 @@ http.route({
         node: typeof data.node === "string" ? data.node.slice(0, 120) : undefined,
         message: data.message.slice(0, 1000),
         requestId: typeof data.requestId === "string" ? (data.requestId as never) : undefined,
+        replayKey: `failure:${eventId ?? body.slice(0, 80)}`,
       });
       return json({ ok: true, ...result });
     } catch {

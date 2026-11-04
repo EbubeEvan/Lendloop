@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import type { Doc } from "../../_generated/dataModel";
+import type { MutationCtx } from "../../_generated/server";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import { todayIso } from "../../lib/dates";
 import { appError } from "../../lib/errors";
@@ -31,6 +32,23 @@ function recipientFor(
     case "workflow.failed":
       return borrower;
   }
+}
+
+/**
+ * Claims an incoming webhook event id. Call this inside the same mutation as
+ * the write it protects: if the write throws, the claim rolls back with it, so
+ * a retry from n8n is processed instead of being acknowledged as a duplicate.
+ */
+async function claimReplayKey(ctx: MutationCtx, key: string): Promise<boolean> {
+  const existing = await ctx.db
+    .query("webhookReplay")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .first();
+  if (existing) {
+    return false;
+  }
+  await ctx.db.insert("webhookReplay", { key, createdAt: Date.now() });
+  return true;
 }
 
 export const getNotificationContext = internalQuery({
@@ -192,6 +210,7 @@ export const recordReminder = internalMutation({
     requestId: v.id("borrowRequests"),
     channel: automationChannelValidator,
     sentAt: v.number(),
+    replayKey: v.string(),
   },
   returns: v.object({
     duplicate: v.boolean(),
@@ -202,6 +221,10 @@ export const recordReminder = internalMutation({
   handler: async (ctx, args) => {
     const day = todayIso(args.sentAt);
     const key = reminderIdempotencyKey(args.requestId, day);
+
+    if (!(await claimReplayKey(ctx, args.replayKey))) {
+      return { duplicate: true, skipped: false, idempotencyKey: key };
+    }
 
     const existing = await ctx.db
       .query("automationEvents")
@@ -256,9 +279,13 @@ export const recordFailure = internalMutation({
     executionId: v.optional(v.string()),
     node: v.optional(v.string()),
     message: v.string(),
+    replayKey: v.string(),
   },
   returns: v.object({ duplicate: v.boolean() }),
   handler: async (ctx, args) => {
+    if (!(await claimReplayKey(ctx, args.replayKey))) {
+      return { duplicate: true };
+    }
     const key = `failure:${args.workflow}:${args.executionId ?? args.message}`;
     const existing = await ctx.db
       .query("automationEvents")
@@ -281,22 +308,6 @@ export const recordFailure = internalMutation({
       createdAt: Date.now(),
     });
     return { duplicate: false };
-  },
-});
-
-export const consumeReplayKey = internalMutation({
-  args: { key: v.string() },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("webhookReplay")
-      .withIndex("by_key", (q) => q.eq("key", args.key))
-      .first();
-    if (existing) {
-      return false;
-    }
-    await ctx.db.insert("webhookReplay", { key: args.key, createdAt: Date.now() });
-    return true;
   },
 });
 
