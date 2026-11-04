@@ -1,6 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server";
 
+import { isAdminRequest } from "@/lib/admin-access";
+import { hasClerkServerKeys } from "@/lib/env.server";
+
 const isProtectedRoute = createRouteMatcher([
   "/browse(.*)",
   "/listings(.*)",
@@ -10,14 +13,19 @@ const isProtectedRoute = createRouteMatcher([
   "/admin(.*)",
 ]);
 
-const hasClerkKeys = Boolean(
-  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
-);
+const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
-const withClerk = hasClerkKeys
+const withClerk = hasClerkServerKeys
   ? clerkMiddleware(async (auth, request) => {
       if (isProtectedRoute(request)) {
         await auth.protect();
+      }
+
+      // Non-admins get the ordinary 404 page with a real 404 status, so admin
+      // screens are indistinguishable from routes that do not exist. This runs
+      // for typed URLs and client-side navigations alike, before rendering.
+      if (isAdminRoute(request) && !(await isAdminRequest(await auth()))) {
+        return NextResponse.rewrite(new URL("/not-found", request.url), { status: 404 });
       }
     })
   : null;

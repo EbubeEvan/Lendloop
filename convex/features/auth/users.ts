@@ -1,8 +1,13 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "../../_generated/server";
-import { getViewer, isAdminEmail } from "../../lib/auth";
+import { getViewer, initialRole, isAdminEmail } from "../../lib/auth";
 import { appError } from "../../lib/errors";
+
+/** Claim names only (never values), to show which token Convex received. */
+function claimNames(identity: object): string {
+  return Object.keys(identity).sort().join(", ") || "none";
+}
 
 function displayName(identity: { name?: string; email: string }): string {
   const name = identity.name?.trim();
@@ -26,7 +31,9 @@ export const store = mutation({
     if (!email) {
       appError(
         "INVALID_INPUT",
-        "Your Clerk session has no email claim. Add `email` to the Convex JWT template.",
+        'Your sign-in token has no email. Add "email": "{{user.primary_email_address}}" to the Clerk ' +
+          'token Convex receives (JWT template "convex", or Sessions → Customize session token when ' +
+          `the Convex integration is on), then sign out and in again. Claims received: ${claimNames(identity)}.`,
       );
     }
 
@@ -55,7 +62,7 @@ export const store = mutation({
       email,
       name: displayName({ name: identity.name, email }),
       imageUrl: identity.pictureUrl,
-      role: isAdminEmail(email) ? "admin" : "user",
+      role: initialRole(email),
       trustedLender: false,
       createdAt: now,
       updatedAt: now,
@@ -89,5 +96,31 @@ export const me = query({
       role: viewer.role,
       trustedLender: viewer.trustedLender,
     };
+  },
+});
+
+/**
+ * Whether the caller may open admin screens. Used by the Next.js proxy before
+ * the page renders — which can be before the client has called `store` for a
+ * brand-new user. Existing users answer from their stored role; new users get
+ * the role `store` will assign them, so a first-time admin is not turned away.
+ * Read-only: the proxy never writes.
+ */
+export const canAccessAdmin = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return false;
+    }
+
+    const viewer = await getViewer(ctx);
+    if (viewer) {
+      return viewer.role === "admin";
+    }
+
+    const email = identity.email?.trim().toLowerCase();
+    return email ? initialRole(email) === "admin" : false;
   },
 });

@@ -1,24 +1,20 @@
 "use client";
 
-import { ShieldAlertIcon } from "lucide-react";
+import { notFound } from "next/navigation";
 
 import { useViewerContext } from "@/providers/viewer-provider";
 
-export function AdminGuard({ children }: { children: React.ReactNode }) {
+/**
+ * Second line of defense behind the proxy check in `src/proxy.ts`, which
+ * already returns a 404 to non-admins before rendering. If a non-admin still
+ * reaches an admin screen, show the same 404 so the page's existence is not
+ * revealed. Admin data is protected independently by `requireAdmin` in Convex.
+ */
+export function AdminGuard({ children }: Readonly<{ children: React.ReactNode }>) {
   const { viewer } = useViewerContext();
 
-  if (!viewer || viewer.role !== "admin") {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl border border-border bg-card p-8 text-center">
-        <span className="grid size-11 place-items-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
-          <ShieldAlertIcon className="size-5" />
-        </span>
-        <h1 className="mt-4 font-display text-xl font-semibold">Administrators only</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Ask a neighbor with admin access to add your email to the server-side allowlist.
-        </p>
-      </div>
-    );
+  if (viewer?.role !== "admin") {
+    notFound();
   }
 
   return <>{children}</>;

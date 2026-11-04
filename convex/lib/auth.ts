@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { env } from "./env";
 import { appError } from "./errors";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -24,6 +25,15 @@ export async function requireViewer(ctx: Ctx): Promise<Doc<"users">> {
   return viewer;
 }
 
+/**
+ * Role assigned when a user record is first created. `store` and
+ * `canAccessAdmin` both use this, so the proxy's answer for a not-yet
+ * provisioned user always matches the row `store` is about to write.
+ */
+export function initialRole(email: string): Doc<"users">["role"] {
+  return isAdminEmail(email) ? "admin" : "user";
+}
+
 export function isAdmin(viewer: Doc<"users">): boolean {
   return viewer.role === "admin";
 }
@@ -41,10 +51,5 @@ export function requireSelfOrAdmin(viewer: Doc<"users">, userId: Id<"users">): v
 }
 
 export function isAdminEmail(email: string): boolean {
-  const allowlist = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  return allowlist.includes(email.trim().toLowerCase());
+  return env.adminEmails().includes(email.trim().toLowerCase());
 }

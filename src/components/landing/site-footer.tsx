@@ -80,11 +80,6 @@ export function SiteFooter() {
               </p>
               <ul className="mt-2.5 space-y-2">
                 <li>
-                  <Link className="text-muted-foreground hover:text-foreground" href="/admin">
-                    Admin
-                  </Link>
-                </li>
-                <li>
                   <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                     <GitBranchIcon className="size-3.5" /> Take-home build
                   </span>
