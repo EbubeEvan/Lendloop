@@ -1,7 +1,7 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
-import { AlertTriangleIcon, Loader2Icon, RefreshCwIcon } from "lucide-react";
+import { useAuth, useClerk } from "@clerk/nextjs";
+import { AlertTriangleIcon, Loader2Icon, LogOutIcon, RefreshCwIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -24,6 +24,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
 
 function AppGateInner({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const { viewer, isLoading, error, retry } = useViewerContext();
   const router = useRouter();
 
@@ -53,9 +54,15 @@ function AppGateInner({ children }: { children: React.ReactNode }) {
           We couldn&apos;t load your account
         </h1>
         <p className="mt-1.5 text-sm text-muted-foreground">{error}</p>
-        <Button className="mt-5" variant="outline" onClick={() => void retry()}>
-          <RefreshCwIcon data-icon="inline-start" className="size-4" /> Try again
-        </Button>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Button variant="outline" onClick={() => void retry()}>
+            <RefreshCwIcon data-icon="inline-start" className="size-4" /> Try again
+          </Button>
+          {/* Always offer a way out: a broken account must never trap the user. */}
+          <Button variant="ghost" onClick={() => void signOut({ redirectUrl: "/" })}>
+            <LogOutIcon data-icon="inline-start" className="size-4" /> Sign out
+          </Button>
+        </div>
       </div>
     );
   }
