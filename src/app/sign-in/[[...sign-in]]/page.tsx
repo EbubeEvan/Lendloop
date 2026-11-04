@@ -1,8 +1,10 @@
 import { SignIn } from "@clerk/nextjs";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { AuthAside } from "@/components/auth/auth-aside";
+import { AuthFormFallback } from "@/components/auth/auth-form-fallback";
 import { Logo } from "@/components/brand/logo";
 import { SetupRequired } from "@/components/setup-required";
 import { isClerkConfigured } from "@/lib/env";
@@ -42,12 +44,14 @@ export default function SignInPage() {
                 Sign in to borrow, lend, and manage your loans.
               </p>
             </div>
-            <SignIn
-              routing="path"
-              path="/sign-in"
-              signUpUrl="/sign-up"
-              fallbackRedirectUrl="/browse"
-            />
+            <Suspense fallback={<AuthFormFallback />}>
+              <SignIn
+                routing="path"
+                path="/sign-in"
+                signUpUrl="/sign-up"
+                fallbackRedirectUrl="/browse"
+              />
+            </Suspense>
           </div>
         </main>
       </div>

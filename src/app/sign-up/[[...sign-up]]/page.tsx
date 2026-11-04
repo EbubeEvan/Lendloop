@@ -1,8 +1,10 @@
 import { SignUp } from "@clerk/nextjs";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { AuthAside } from "@/components/auth/auth-aside";
+import { AuthFormFallback } from "@/components/auth/auth-form-fallback";
 import { Logo } from "@/components/brand/logo";
 import { SetupRequired } from "@/components/setup-required";
 import { isClerkConfigured } from "@/lib/env";
@@ -42,12 +44,14 @@ export default function SignUpPage() {
                 List the tools you rarely use and borrow what you need.
               </p>
             </div>
-            <SignUp
-              routing="path"
-              path="/sign-up"
-              signInUrl="/sign-in"
-              fallbackRedirectUrl="/browse"
-            />
+            <Suspense fallback={<AuthFormFallback />}>
+              <SignUp
+                routing="path"
+                path="/sign-up"
+                signInUrl="/sign-in"
+                fallbackRedirectUrl="/browse"
+              />
+            </Suspense>
           </div>
         </main>
       </div>
