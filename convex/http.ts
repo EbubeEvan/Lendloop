@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import { env } from "./lib/env";
 import { verifySignature } from "./lib/hmac";
 
 const http = httpRouter();
@@ -20,7 +21,7 @@ async function verifyIncoming(
   request: Request,
   body: string,
 ): Promise<{ ok: true } | { ok: false; response: Response }> {
-  const secret = process.env.N8N_TO_CONVEX_SECRET;
+  const secret = env.incomingSecret();
   if (!secret) {
     return {
       ok: false,

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { internal } from "../../_generated/api";
 import { internalAction } from "../../_generated/server";
+import { env } from "../../lib/env";
 import { buildSignature } from "../../lib/hmac";
 import { automationTypeValidator } from "../../schema";
 
@@ -30,9 +31,8 @@ export const dispatchRequestEvent = internalAction({
       return null;
     }
 
-    const webhookUrl = process.env.N8N_WEBHOOK_URL;
-    const secret = process.env.CONVEX_TO_N8N_SECRET;
-    if (!webhookUrl || !secret) {
+    const webhook = env.n8nWebhook();
+    if (!webhook) {
       await ctx.runMutation(internal.features.automation.internal.recordDispatchResult, {
         requestId: args.requestId,
         type: args.type,
@@ -57,6 +57,7 @@ export const dispatchRequestEvent = internalAction({
       counterpartName: context.counterpartName,
       appUrl: context.appUrl,
     };
+    const { url: webhookUrl, secret } = webhook;
     const body = JSON.stringify(payload);
     const timestamp = String(Date.now());
 

@@ -4,6 +4,7 @@ import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import { todayIso } from "../../lib/dates";
+import { env } from "../../lib/env";
 import { appError } from "../../lib/errors";
 import { reminderIdempotencyKey } from "../../lib/hmac";
 import {
@@ -91,7 +92,7 @@ export const getNotificationContext = internalQuery({
 
     const recipient = recipientFor(args.type, owner, borrower, request.returnedById);
     const counterpart = recipient._id === owner._id ? borrower : owner;
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const appUrl = env.appUrl();
 
     return {
       requestId: request._id,

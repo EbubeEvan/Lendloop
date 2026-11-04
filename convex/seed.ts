@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 import { addDaysIso, todayIso } from "./lib/dates";
+import { env } from "./lib/env";
 import { appError } from "./lib/errors";
 
 /**
@@ -15,7 +16,7 @@ export const seedDemoTools = internalMutation({
   },
   returns: v.object({ tools: v.number(), requests: v.number() }),
   handler: async (ctx, args) => {
-    if (process.env.ALLOW_DEV_SEED !== "true") {
+    if (!env.allowDevSeed()) {
       appError("FORBIDDEN", "Seeding is disabled. Set ALLOW_DEV_SEED=true to enable it.");
     }
     const owner = args.ownerEmail

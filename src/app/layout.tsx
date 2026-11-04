@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Fraunces, Geist } from "next/font/google";
 
+import { appUrl } from "@/lib/env";
 import { cn } from "@/lib/utils";
 import { AppProviders } from "@/providers/app-providers";
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   },
   description:
     "A neighborhood tool-lending board. List the tools you rarely use, borrow what you need, and let automated reminders handle the follow-up.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(appUrl),
   icons: {
     icon: "/favicon.svg",
   },
