@@ -4,6 +4,10 @@ import { PageHeader } from "@/components/page";
 import { SetupRequired } from "@/components/setup-required";
 import { isClerkConfigured } from "@/lib/env";
 
+// Client-gated page (see docs/frontend.md → "Instant navigation"): AppGate renders it
+// only after Clerk and Convex load in the browser, so it cannot be validated as instant.
+export const instant = false;
+
 export const metadata = {
   title: "Account settings",
 };
