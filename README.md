@@ -1,6 +1,6 @@
 # LendLoop
 
-A neighborhood tool-lending board. Neighbors list the tools they are willing to share, request a date range, and the owner approves, declines, or marks the tool returned. A self-hosted n8n instance sends the notifications and the daily overdue reminders, with every call between n8n and Convex signed.
+A neighborhood tool-lending board. Neighbors list the tools they are willing to share, request a date range, and the owner approves, rejects, or marks the tool returned. A self-hosted n8n instance sends the notifications and the daily overdue reminders, with every call between n8n and Convex signed.
 
 The project is a **modular monolith**: each product area is a self-contained feature with a single public entry point, so a feature can be deleted without breaking the rest of the app. Backend authorization is enforced in Convex, never in the UI.
 
@@ -42,7 +42,21 @@ cp .env.convex.example .env.convex.local
 2. **Create a Clerk application**
 
    - Copy the publishable and secret keys into `.env.local`.
-   - In Clerk → **JWT templates**, create the `convex` template (Clerk's Convex integration guide has the exact claims).
+   - In Clerk → **JWT templates**, create a template named exactly `convex` (the **Convex** preset works) and make sure its claims include the email — LendLoop refuses to provision an account without it, because the admin allowlist and notifications depend on it:
+
+     ```json
+     {
+       "aud": "convex",
+       "email": "{{user.primary_email_address}}",
+       "name": "{{user.full_name}}",
+       "picture": "{{user.image_url}}"
+     }
+     ```
+
+     If you enabled Clerk's native integration (**Integrations → Convex**), Convex uses the session token instead of this template. Add the same `email`, `name`, and `picture` claims under **Sessions → Customize session token**, because the default session token has no email.
+
+     After changing claims, sign out and back in so Clerk issues a fresh token. This applies to every sign-in method, including Google.
+
    - Copy the Frontend API URL into `CLERK_JWT_ISSUER_DOMAIN` in `.env.convex.local`.
 
 3. **Push backend secrets**
@@ -84,6 +98,14 @@ The app is designed to fail soft: without Clerk/Convex keys the landing page and
 ---
 
 ## Environment variables
+
+Each runtime reads its environment in exactly one module, and ESLint rejects `process.env` anywhere else in `src/` or `convex/`:
+
+| Module                  | Runtime               | Holds                                                                                             |
+| ----------------------- | --------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/lib/env.ts`        | Next.js, browser-safe | `NEXT_PUBLIC_*` values and the derived `is*Configured` flags                                      |
+| `src/lib/env.server.ts` | Next.js, server only  | Secrets such as `CLERK_SECRET_KEY`; importing it from client code fails the build (`server-only`) |
+| `convex/lib/env.ts`     | Convex functions      | Getters read at call time (admin allowlist, n8n URL and secrets, seed switch)                     |
 
 ### Next.js (`.env.local`, never committed)
 
@@ -138,7 +160,7 @@ In the settings of the first two, select **LendLoop — Error handler** as the e
 
 **Request notifications** (`n8n/workflows/request-notifications.json`)
 
-1. Convex calls the webhook after a request is created, approved, declined, cancelled, or returned.
+1. Convex calls the webhook after a request is created, approved, rejected, cancelled, or returned.
 2. A Code node recomputes the signature over the raw JSON body and rejects stale timestamps (5-minute window) or mismatched signatures.
 3. Valid events are rendered into an email and sent through Mailpit.
 4. Invalid events get a `401`; Convex records the failed delivery and retries the dispatch up to three times.
@@ -202,10 +224,12 @@ convex/
 ```
 pending ──approve──▶ approved ──return──▶ returned
    │                    │
-   └──decline──▶ declined
+   └──reject───▶ declined   (shown as “Rejected”)
    │
    └──cancel───▶ cancelled
 ```
+
+Rejecting is final: the request closes immediately, leaves the owner's queue, frees the dates, and the borrower sees it as **Rejected** with no further actions. The stored status value is `declined`; only the wording in the UI and emails says “rejected”.
 
 `borrowRequests` is the single lifecycle table; a “loan” is an approved request, and “overdue” is derived (`status = approved` and `endDate < today`). There is no separate loans table to keep in sync.
 
@@ -215,12 +239,18 @@ Every Convex function derives the caller from the Clerk identity and the `users`
 
 - **Public**: the landing board query projects only `{_id, name, category}` of active tools. No owner, description, or request data.
 - **Signed in**: list tools, request a date range, cancel a pending request, view own requests.
-- **Owners**: approve/decline requests for their own tools, edit/remove their own listings, mark their loans returned.
+- **Owners**: approve/reject requests for their own tools, edit/remove their own listings, mark their loans returned.
 - **Borrowers**: mark a loan returned only while it is active.
 - **Admins**: remove any listing, view every loan and every user, mark a user as Trusted Lender. Roles come from the server-side `ADMIN_EMAILS` allowlist; the `users.role` column is the source of truth afterwards.
 - **Trusted Lender**: a badge set by an admin; it does not silently grant data access.
 
 The UI hides actions a viewer cannot perform, but the mutation repeats the check — calling it directly with a forged id still fails. See `tests/convex/rbac.test.ts`.
+
+Admin screens are invisible to regular users at three layers:
+
+1. **Navigation** — admin links render only for `role === "admin"`; the public site has no admin links.
+2. **Proxy** — `src/proxy.ts` asks Convex whether the caller may open admin screens (`canAccessAdmin` via `src/lib/admin-access.ts`, using the Clerk session's Convex token). Provisioned users answer from their stored role; a first-time user gets the role `store` is about to assign from `ADMIN_EMAILS`, so a new admin is not turned away before their record exists. The check runs on every `/admin/*` request, including client-side navigations, and rewrites non-admins to the normal 404 page with a real `404` status before anything renders. It fails closed if Clerk or Convex errors. The response is identical to a route that does not exist.
+3. **Convex** — every admin query and mutation calls `requireAdmin`, so the data stays protected even if the first two layers were bypassed. `AdminGuard` in the client renders the same 404 as a last fallback.
 
 ### Data minimization and security
 
@@ -250,6 +280,7 @@ Delete `src/features/<name>`, its route folder under `src/app/(app)`, and its en
 | `pnpm test`             | Vitest (Convex lifecycle + RBAC, HMAC, dates, validation, UI) |
 | `pnpm test:coverage`    | Coverage report                                               |
 | `pnpm test:e2e`         | Playwright smoke suite (no keys needed)                       |
+| `pnpm test:e2e:flows`   | Playwright signed-in flows (Clerk + Convex dev keys)          |
 | `pnpm format`           | Prettier write                                                |
 | `pnpm convex:dev`       | Start the Convex dev deployment                               |
 | `pnpm convex:deploy`    | Deploy Convex functions to production                         |
@@ -280,7 +311,9 @@ pnpm test:e2e    # Playwright smoke suite (desktop + mobile Chromium)
 
 - `e2e/smoke.spec.ts` — runs the real app without Clerk or Convex keys: tagline and sign-in call to action, the public board shows names and categories only, category filters, axe WCAG 2 A/AA scan, no horizontal scroll on mobile, and every protected route renders the setup notice instead of crashing. Run `pnpm exec playwright install chromium` once before the first run.
 
-Signed-in browser flows (owner lists, borrower requests, owner approves and closes) are not automated yet; they need a Clerk test instance (`@clerk/testing`) and a Convex dev deployment, and would run only when those secrets are present.
+- `e2e/flows/*` — signed-in flows against a real Clerk dev instance and Convex dev deployment (`pnpm test:e2e:flows`): list → request → approve → return as seen by both neighbors, rejecting and cancelling, editing a listing, category filters, the automation timeline on a loan, signed-out redirects, non-admins getting a 404 on every admin URL with no admin links in their navigation, and (with an admin account) removing any listing and toggling Trusted Lender.
+
+  Setup: put the Clerk and Convex dev keys in `.env.local`, create two or three users in the Clerk **development** instance, copy `.env.e2e.example` to `.env.e2e.local` with their emails, and add the admin email to `ADMIN_EMAILS` in Convex. The suite signs in with Clerk sign-in tickets (no passwords), refuses `sk_live_` keys, creates uniquely named listings, and removes them afterwards. In CI it runs only when the `E2E_*` secrets are configured.
 
 `convex-test` imports every backend module through `import.meta.glob`, so new functions are covered by the module type-check automatically.
 

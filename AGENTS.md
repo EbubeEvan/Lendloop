@@ -25,6 +25,7 @@ pnpm lint                # ESLint, zero warnings
 pnpm typecheck           # tsc --noEmit
 pnpm test                # Vitest
 pnpm test:e2e            # Playwright smoke suite (keyless)
+pnpm test:e2e:flows      # Playwright signed-in flows (needs dev keys + .env.e2e.local)
 pnpm verify:isolation    # feature boundary report
 pnpm build               # production build
 pnpm n8n:build           # regenerate n8n/workflows/*.json
@@ -45,7 +46,7 @@ Run `lint`, `typecheck`, and `test` before committing. Pre-push runs typecheck +
 - `n8n/` — compose file, env template, import script, generated workflows.
 - `scripts/` — workflow generator, mock Convex HTTP server, isolation verifier.
 - `tests/` — `convex/` integration tests, `unit/`, `ui/`.
-- `e2e/` — Playwright smoke tests that run without Clerk/Convex keys.
+- `e2e/smoke/` — Playwright tests that run without Clerk/Convex keys; `e2e/flows/` — signed-in flows against dev Clerk/Convex.
 
 ## Hard rules
 
@@ -53,7 +54,7 @@ Run `lint`, `typecheck`, and `test` before committing. Pre-push runs typecheck +
 2. **Features stay independent.** No feature may import another feature, and nobody may deep-import `@/features/<name>/...` from outside that feature. Cross-feature composition happens in `src/app` or moves to `src/components`.
 3. **Keep `index.ts` at the feature root.** New feature files go in a subfolder, never loose next to `index.ts`. `pnpm verify:isolation` enforces both rules.
 4. **Never leak private data through public queries.** The public board returns only `{_id, name, category}` for active tools.
-5. **Secrets never enter the repo or workflow JSON.** Use Convex deployment env vars and `$env` in n8n. The client only sees `NEXT_PUBLIC_*` values.
+5. **Secrets never enter the repo or workflow JSON.** Use Convex deployment env vars and `$env` in n8n. The client only sees `NEXT_PUBLIC_*` values. Read env only through `src/lib/env.ts` (public), `src/lib/env.server.ts` (secrets, `server-only`), or `convex/lib/env.ts` (getters, never cached at module load); ESLint blocks `process.env` elsewhere.
 6. **Exact return validators.** A Convex function with a `returns` validator must return exactly those fields; extra or missing keys fail at runtime, not compile time.
 7. **Validate and sanitize inputs.** Use the shared validators in `convex/lib/validation.ts` and the Zod schemas in the UI. Dates are ISO `YYYY-MM-DD`; day calculations use UTC helpers from `convex/lib/dates.ts`.
 8. **UTC everywhere on the server.** Overdue checks and reminder idempotency keys are day-scoped in UTC.
@@ -63,7 +64,7 @@ Run `lint`, `typecheck`, and `test` before committing. Pre-push runs typecheck +
 - Server Components by default; add `"use client"` only for hooks, events, or browser APIs. Views that call `useQuery` are client components.
 - Server state comes from Convex (`useQuery`, `useMutation`, `useConvex`). Do **not** add TanStack Query or fetch API routes for data that Convex already owns.
 - Zustand is only for ephemeral UI state (filters, mobile nav). Do not mirror server records into it.
-- Route through the viewer context: `useViewerContext()` for the provisioned user, `useViewer()` only inside the gate/provisioning layer. Admin screens additionally use `AdminGuard`.
+- Route through the viewer context: `useViewerContext()` for the provisioned user, `useViewer()` only inside the gate/provisioning layer. Admin screens are 404 for non-admins: `src/proxy.ts` checks the Convex role for `/admin/*` before rendering, and pages additionally use `AdminGuard` (which also renders 404). Never link to `/admin` from public or non-admin UI.
 - Forms use React Hook Form plus the kit in `src/components/forms`: `FormInput`, `FormTextarea`, `FormSelect`, `FormCheckbox`, `FormDateRange`. They require a `control`; labels, descriptions, hints, and errors are built in. Do not hand-roll a label/error pair.
 - Toasts: `sonner` (`toast.success` / `toast.error`). User-safe backend errors go through `getErrorMessage` in `src/lib/errors.ts`.
 - Links use `next/link`; icons come from `lucide-react`; conditional classes use `cn()`.
@@ -72,7 +73,7 @@ Run `lint`, `typecheck`, and `test` before committing. Pre-push runs typecheck +
 ### Adding a feature
 
 1. Create `src/features/<name>/index.ts` and `src/features/<name>/components/*`.
-2. Add a route under `src/app/(app)/<route>/page.tsx` that imports from `@/features/<name>`.
+2. Add a route under `src/app/(app)/<route>/page.tsx` that imports from `@/features/<name>`. Signed-in pages export `instant = false` (see `docs/frontend.md` → Instant navigation).
 3. Register navigation and the flag in `src/config/navigation.ts`.
 4. Add Convex functions under `convex/features/<name>/` and export them from the generated API (or run codegen).
 5. Run `pnpm verify:isolation`, `pnpm lint`, `pnpm typecheck`, `pnpm test`.
@@ -82,7 +83,7 @@ Run `lint`, `typecheck`, and `test` before committing. Pre-push runs typecheck +
 - Public functions live in `convex/features/**/queries.ts|mutations.ts`; shared internals in `internal.ts`; actions in `actions.ts`.
 - Use `appError(code, message)` from `convex/lib/errors.ts` for expected failures. `ConvexError` messages are safe to surface; anything else is generic.
 - Write audit entries for state changes via `convex/lib/audit.ts`.
-- The request lifecycle is `pending → approved|declined|cancelled`, `approved → returned`. Validate transitions; do not add a second loans table.
+- The request lifecycle is `pending → approved|declined|cancelled`, `approved → returned`. `declined` is shown to users as “Rejected” — keep the stored value, use “reject” in UI copy and emails. Validate transitions; do not add a second loans table.
 - The public board shapes queries in `convex/lib/requestQueries.ts` / tools queries; keep projections narrow.
 - `convex/_generated` is committed because this checkout has no deployment. `convex codegen` fails without `CONVEX_DEPLOYMENT`; if you change `schema.ts`, hand-update `api.d.ts`, `dataModel.d.ts`, and `server.d.ts` consistently, or run codegen against a real deployment and commit the output. Never delete these files — the app and tests import them.
 - Convex code must not import from `src/` (ESLint blocks it). Shared backend helpers belong in `convex/lib`.

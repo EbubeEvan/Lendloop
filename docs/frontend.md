@@ -185,15 +185,21 @@ Add validation copy that says what to do (“Add at least 10 characters…”, n
 ## Dialogs and destructive actions
 
 - `Dialog` for create/edit flows; keep the trigger and form in the same client component.
-- `ConfirmDialog` (`src/components/confirm-dialog.tsx`) for remove/decline/return confirmations. It exposes `title`, `description`, `confirmLabel`, `onConfirm`, and pending state.
+- `ConfirmDialog` (`src/components/confirm-dialog.tsx`) for remove/reject/return confirmations. It exposes `title`, `description`, `confirmLabel`, `onConfirm`, and pending state.
 - Destructive buttons use the `destructive` variant; neutral cancel is `outline` or `ghost`.
 - Always disable the confirm button while the mutation is in flight, and keep the dialog open if the mutation fails.
 
 ## Navigation and gates
 
 - `src/config/navigation.ts` is the only navigation registry. `PRIMARY_NAV`, `ADMIN_NAV`, and `enabledNav()` respect `FEATURES`.
-- `AdminGuard` handles the in-app “administrators only” state; the backend still rejects non-admin mutations. Never rely on the guard for security.
+- Non-admins get a 404 for `/admin/*` from the proxy before rendering; `AdminGuard` renders the same 404 as a client-side fallback. The backend still rejects non-admin queries and mutations — never rely on either for data security.
 - `AppShell` renders desktop sidebar + mobile sheet from the same registry. New pages need a nav item only if they are top-level destinations.
+
+## Instant navigation
+
+`cacheComponents` is on, so in development Next.js validates that every page can render instantly on navigation. Signed-in pages under `src/app/(app)` cannot: `AppGate` renders them only after Clerk and Convex have loaded in the browser, and their data arrives through Convex subscriptions, not the server. The validator therefore never sees the page and reports it as a _dropped segment_.
+
+Each of those pages declares `export const instant = false` to opt out of that validation. It does not slow anything down — the pages still navigate client-side as before. Putting it on the shared layout is not enough, because pages below a layout are validated individually. Public pages (`/`, sign-in, sign-up, 404) are server-rendered and keep the default validation; do not add `instant = false` there.
 
 ## Shared components worth knowing
 
@@ -201,7 +207,7 @@ Add validation copy that says what to do (“Add at least 10 characters…”, n
 | --------------------------- | -------------------------------------------------------- |
 | `ToolCard`                  | Tool summary, owner, availability, condition, actions    |
 | `RequestCard`               | Request summary with status badge and role-aware actions |
-| `RequestActions`            | Approve/decline/cancel/return buttons with confirmations |
+| `RequestActions`            | Approve/reject/cancel/return buttons with confirmations  |
 | `AutomationTimeline`        | Delivery events on admin automation and request detail   |
 | `StatusBadge` / `ToneBadge` | Consistent status colors; map via `src/lib/status.ts`    |
 | `UserAvatar`                | Initials/image fallback                                  |
