@@ -24,6 +24,7 @@ pnpm convex:dev          # Convex deployment (separate terminal)
 pnpm lint                # ESLint, zero warnings
 pnpm typecheck           # tsc --noEmit
 pnpm test                # Vitest
+pnpm test:e2e            # Playwright smoke suite (keyless)
 pnpm verify:isolation    # feature boundary report
 pnpm build               # production build
 pnpm n8n:build           # regenerate n8n/workflows/*.json
@@ -44,6 +45,7 @@ Run `lint`, `typecheck`, and `test` before committing. Pre-push runs typecheck +
 - `n8n/` — compose file, env template, import script, generated workflows.
 - `scripts/` — workflow generator, mock Convex HTTP server, isolation verifier.
 - `tests/` — `convex/` integration tests, `unit/`, `ui/`.
+- `e2e/` — Playwright smoke tests that run without Clerk/Convex keys.
 
 ## Hard rules
 

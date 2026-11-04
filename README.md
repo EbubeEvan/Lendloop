@@ -247,8 +247,9 @@ Delete `src/features/<name>`, its route folder under `src/app/(app)`, and its en
 | `pnpm build`            | Production build                                              |
 | `pnpm lint`             | ESLint with zero warnings allowed                             |
 | `pnpm typecheck`        | `tsc --noEmit`                                                |
-| `pnpm test`             | Vitest (Convex RBAC, HMAC, dates, validation, form fields)    |
+| `pnpm test`             | Vitest (Convex lifecycle + RBAC, HMAC, dates, validation, UI) |
 | `pnpm test:coverage`    | Coverage report                                               |
+| `pnpm test:e2e`         | Playwright smoke suite (no keys needed)                       |
 | `pnpm format`           | Prettier write                                                |
 | `pnpm convex:dev`       | Start the Convex dev deployment                               |
 | `pnpm convex:deploy`    | Deploy Convex functions to production                         |
@@ -266,14 +267,20 @@ Quality gates run automatically: Husky's pre-commit formats and lints staged fil
 ## Testing
 
 ```bash
-pnpm test
+pnpm test        # Vitest: backend, helpers, form kit
+pnpm test:e2e    # Playwright smoke suite (desktop + mobile Chromium)
 ```
 
+- `tests/convex/lifecycle.test.ts` — the full loan lifecycle (request → approve → return) with recipients per event, signed outgoing webhooks and their minimal payload, three-attempt retry with a visible failure record, the signed overdue endpoint, idempotent reminder write-backs, tamper rejection, and n8n failure reports.
 - `tests/convex/rbac.test.ts` — real Convex functions against `convex-test`, covering unauthenticated access, owner/borrower boundaries, admin-only mutations, public projection, and invalid transitions.
 - `tests/unit/hmac.test.ts` — signature construction, skew window, tampering.
 - `tests/unit/dates.test.ts` — ISO date handling and overdue derivation.
 - `tests/unit/validation.test.ts` — request and tool input rules.
 - `tests/ui/form-input.test.tsx` — label, helper text, error wiring, and password toggle.
+
+- `e2e/smoke.spec.ts` — runs the real app without Clerk or Convex keys: tagline and sign-in call to action, the public board shows names and categories only, category filters, axe WCAG 2 A/AA scan, no horizontal scroll on mobile, and every protected route renders the setup notice instead of crashing. Run `pnpm exec playwright install chromium` once before the first run.
+
+Signed-in browser flows (owner lists, borrower requests, owner approves and closes) are not automated yet; they need a Clerk test instance (`@clerk/testing`) and a Convex dev deployment, and would run only when those secrets are present.
 
 `convex-test` imports every backend module through `import.meta.glob`, so new functions are covered by the module type-check automatically.
 
