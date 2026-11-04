@@ -22,6 +22,9 @@ n8n/.env
 
 # Tests
 coverage
+test-results
+playwright-report
+blob-report
 
 # n8n local data
 n8n/data
