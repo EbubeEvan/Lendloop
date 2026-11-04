@@ -1,4 +1,4 @@
-export { AdminAutomation } from "./admin-automation";
-export { AdminLoans } from "./admin-loans";
-export { AdminNeighbors } from "./admin-neighbors";
-export { AdminOverview } from "./admin-overview";
+export { AdminAutomation } from "./components/admin-automation";
+export { AdminLoans } from "./components/admin-loans";
+export { AdminNeighbors } from "./components/admin-neighbors";
+export { AdminOverview } from "./components/admin-overview";

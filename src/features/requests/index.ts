@@ -1,2 +1,2 @@
-export { IncomingView } from "./incoming-view";
-export { RequestsView } from "./requests-view";
+export { IncomingView } from "./components/incoming-view";
+export { RequestsView } from "./components/requests-view";

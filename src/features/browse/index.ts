@@ -1,2 +1,2 @@
-export { BrowseView } from "./browse-view";
-export { RequestDialog } from "./request-dialog";
+export { BrowseView } from "./components/browse-view";
+export { RequestDialog } from "./components/request-dialog";

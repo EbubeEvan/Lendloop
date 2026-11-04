@@ -1,1 +1,1 @@
-export { LoansView } from "./loans-view";
+export { LoansView } from "./components/loans-view";

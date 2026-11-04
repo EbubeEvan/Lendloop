@@ -1,2 +1,2 @@
-export { ListingsView } from "./listings-view";
-export { ToolFormDialog } from "./tool-form-dialog";
+export { ListingsView } from "./components/listings-view";
+export { ToolFormDialog } from "./components/tool-form-dialog";
