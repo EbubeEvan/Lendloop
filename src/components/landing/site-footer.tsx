@@ -95,7 +95,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-8 flex flex-col gap-2 border-t border-border/60 pt-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} LendLoop. Built for neighbors.</p>
+          <p>© LendLoop. Built for neighbors.</p>
           <p>Next.js · Clerk · Convex · n8n</p>
         </div>
       </div>
