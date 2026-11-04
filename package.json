@@ -1,0 +1,96 @@
+{
+  "name": "lendloop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LendLoop — a neighborhood tool-lending board with automated reminders.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "convex:codegen": "convex codegen --init",
+    "seed": "convex run seed:seedDemoTools",
+    "n8n:up": "docker compose -f n8n/docker-compose.yml up -d",
+    "n8n:down": "docker compose -f n8n/docker-compose.yml down",
+    "n8n:logs": "docker compose -f n8n/docker-compose.yml logs -f n8n",
+    "n8n:import": "bash n8n/import-workflows.sh",
+    "mock:http": "node scripts/mock-convex-http.mjs",
+    "verify:isolation": "node scripts/verify-feature-isolation.mjs",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^7.9.24",
+    "@hookform/resolvers": "^7.0.2",
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.5.2",
+    "convex": "^1.49.0",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^1.68.0",
+    "next": "16.4.5",
+    "next-themes": "^0.4.6",
+    "radix-ui": "^1.8.1",
+    "react": "19.3.0",
+    "react-day-picker": "^10.0.2",
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.91.0",
+    "sonner": "^2.0.8",
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@convex-dev/eslint-plugin": "^5.0.1",
+    "@tailwindcss/turbopack": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.1.0",
+    "convex-test": "^0.0.67",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.5",
+    "eslint-plugin-boundaries": "^7.4.1",
+    "eslint-plugin-shadcn": "^1.2.3",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "husky": "^9.1.7",
+    "jsdom": "^30.1.3",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^5.1.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,css,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "@tailwindcss/oxide"
+    ]
+  },
+  "packageManager": "pnpm@10.20.0"
+}
