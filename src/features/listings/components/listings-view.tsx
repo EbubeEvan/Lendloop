@@ -45,7 +45,7 @@ export function ListingsView() {
       toast.success("Listing removed", {
         description:
           result.declinedRequests > 0
-            ? `${result.declinedRequests} pending request(s) were declined.`
+            ? `${result.declinedRequests} pending request(s) were rejected.`
             : `${removing.name} is no longer on the board.`,
       });
       setRemoving(null);
@@ -142,7 +142,7 @@ export function ListingsView() {
           }
         }}
         title={`Remove ${removing?.name ?? "this listing"}?`}
-        description="The listing disappears from the board. Pending requests will be declined automatically. This cannot be undone."
+        description="The listing disappears from the board. Pending requests will be rejected automatically. This cannot be undone."
         confirmLabel="Remove listing"
         destructive
         pending={pending}

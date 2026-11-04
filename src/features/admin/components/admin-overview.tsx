@@ -54,7 +54,7 @@ export function AdminOverview() {
       toast.success("Listing removed", {
         description:
           result.declinedRequests > 0
-            ? `${result.declinedRequests} pending request(s) were declined and the owner was notified.`
+            ? `${result.declinedRequests} pending request(s) were rejected and the owner was notified.`
             : `${removing.name} was removed from the board.`,
       });
       setRemoving(null);
@@ -214,7 +214,7 @@ export function AdminOverview() {
           }
         }}
         title={`Remove ${removing?.name ?? "this listing"}?`}
-        description="This removes another neighbor's listing and declines any pending requests. Use it for stale or unsafe tools."
+        description="This removes another neighbor's listing and rejects any pending requests. Use it for stale or unsafe tools."
         confirmLabel="Remove listing"
         destructive
         pending={pending}

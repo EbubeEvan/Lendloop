@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 const EVENT_LABEL: Record<string, string> = {
   "request.created": "Request notification",
   "request.approved": "Approval notification",
-  "request.declined": "Decline notification",
+  "request.declined": "Rejection notification",
   "request.cancelled": "Cancellation notification",
   "request.returned": "Return notification",
   "reminder.sent": "Overdue reminder",

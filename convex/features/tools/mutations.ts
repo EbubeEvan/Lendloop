@@ -123,7 +123,7 @@ export const remove = mutation({
       .collect();
 
     if (!admin && pending.length > 0) {
-      appError("CONFLICT", "Decline the pending requests before removing this listing.");
+      appError("CONFLICT", "Reject the pending requests before removing this listing.");
     }
 
     const now = Date.now();

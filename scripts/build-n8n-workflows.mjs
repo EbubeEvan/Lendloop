@@ -93,8 +93,8 @@ const copy = {
     path: "/loans",
   },
   "request.declined": {
-    subject: "Declined: " + payload.toolName,
-    intro: payload.counterpartName + " declined your request for " + payload.toolName + ".",
+    subject: "Rejected: " + payload.toolName,
+    intro: payload.counterpartName + " rejected your request for " + payload.toolName + ". The request is closed, so you can ask another neighbor or pick new dates.",
     cta: "Find another tool",
     path: "/browse",
   },

@@ -109,7 +109,7 @@ export function RequestDialog({
             Borrow {tool.name}
           </DialogTitle>
           <DialogDescription>
-            Choose the days you need it. {tool.owner.name} will approve or decline.
+            Choose the days you need it. {tool.owner.name} will approve or reject.
           </DialogDescription>
         </DialogHeader>
 

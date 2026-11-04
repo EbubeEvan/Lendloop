@@ -36,13 +36,13 @@ export function RequestActions({
         toast.success("Request approved", {
           description:
             result.declinedOverlaps > 0
-              ? `${result.declinedOverlaps} overlapping request(s) were declined automatically.`
+              ? `${result.declinedOverlaps} overlapping request(s) were rejected automatically.`
               : `${request.borrower.name} can pick up ${request.tool.name}.`,
         });
       } else if (action === "decline") {
         await decline({ requestId: request._id as Id<"borrowRequests"> });
-        toast.success("Request declined", {
-          description: `${request.borrower.name} has been notified.`,
+        toast.success("Request rejected", {
+          description: `The request is closed and ${request.borrower.name} has been notified.`,
         });
       } else if (action === "cancel") {
         await cancel({ requestId: request._id as Id<"borrowRequests"> });
@@ -90,7 +90,7 @@ export function RequestActions({
             onClick={() => setConfirming("decline")}
             disabled={pending !== null}
           >
-            <XIcon data-icon="inline-start" className="size-4" /> Decline
+            <XIcon data-icon="inline-start" className="size-4" /> Reject
           </Button>
         ) : null}
 
@@ -131,21 +131,21 @@ export function RequestActions({
         }}
         title={
           confirming === "decline"
-            ? "Decline this request?"
+            ? "Reject this request?"
             : confirming === "cancel"
               ? "Cancel your request?"
               : "Mark this loan as returned?"
         }
         description={
           confirming === "decline"
-            ? `${request.borrower.name} will be notified and the dates will open up for others.`
+            ? `The request closes right away, ${request.borrower.name} sees it as rejected, and the dates open up for others.`
             : confirming === "cancel"
               ? "The lender will no longer see this request. You can request different dates later."
               : "Only do this once the tool is back in the lender's hands. The loan will close for both sides."
         }
         confirmLabel={
           confirming === "decline"
-            ? "Decline request"
+            ? "Reject request"
             : confirming === "cancel"
               ? "Cancel request"
               : "Mark returned"

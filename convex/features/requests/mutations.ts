@@ -142,7 +142,7 @@ export const approve = mutation({
 
     const tool = await ctx.db.get(request.toolId);
     if (!tool || tool.isRemoved) {
-      appError("CONFLICT", "This listing was removed. Decline the request instead.");
+      appError("CONFLICT", "This listing was removed. Reject the request instead.");
     }
 
     const approved = await ctx.db
@@ -205,10 +205,10 @@ export const decline = mutation({
       appError("NOT_FOUND", "That request no longer exists.");
     }
     if (request.ownerId !== viewer._id) {
-      appError("FORBIDDEN", "Only the tool owner can decline requests.");
+      appError("FORBIDDEN", "Only the tool owner can reject requests.");
     }
     if (request.status !== "pending") {
-      appError("CONFLICT", "Only pending requests can be declined.");
+      appError("CONFLICT", "Only pending requests can be rejected.");
     }
 
     const now = Date.now();

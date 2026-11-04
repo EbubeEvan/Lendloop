@@ -95,7 +95,7 @@ export function RequestsView() {
           title={filter === "history" ? "No past requests yet" : "No requests here"}
           description={
             filter === "history"
-              ? "Once a request is declined, cancelled, or returned, it will show up here."
+              ? "Once a request is rejected, cancelled, or returned, it will show up here."
               : "Browse the board and ask a neighbor to borrow something. Most people say yes."
           }
           action={

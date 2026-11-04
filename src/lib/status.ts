@@ -9,7 +9,7 @@ export const REQUEST_STATUS_META: Record<
 > = {
   pending: { label: "Pending", tone: "amber" },
   approved: { label: "Approved", tone: "emerald" },
-  declined: { label: "Declined", tone: "rose" },
+  declined: { label: "Rejected", tone: "rose" },
   cancelled: { label: "Cancelled", tone: "stone" },
   returned: { label: "Returned", tone: "sky" },
 };

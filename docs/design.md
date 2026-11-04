@@ -32,7 +32,7 @@ Status colors are fixed semantic pairs used by `ToneBadge`:
 
 - **pending** → amber
 - **approved / available** → emerald
-- **declined** → rose
+- **declined** (shown as “Rejected”) → rose
 - **cancelled** → stone
 - **returned / on loan** → sky
 
@@ -157,7 +157,7 @@ The n8n emails mirror the app without external assets:
 ## Voice and copy
 
 - Neighborly and direct: “What's on the block?”, “Borrow what you need. Lend what you don't.”
-- Use plain verbs: borrow, lend, list, approve, decline, return. Avoid “utilize”, “leverage”, “platform”.
+- Use plain verbs: borrow, lend, list, approve, reject, return. Avoid “utilize”, “leverage”, “platform”.
 - Dates read like `Nov 12 → Nov 15`; relative time like “2 days overdue”.
 - Errors say what happened and what to do next. Never blame the user.
 - Empty states and confirmations are short; no exclamation marks, no emoji.

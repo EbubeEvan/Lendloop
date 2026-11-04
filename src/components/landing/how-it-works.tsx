@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: InboxIcon,
     title: "Approve from your inbox",
-    body: "Lenders see incoming requests with the borrower's note, then approve or decline.",
+    body: "Lenders see incoming requests with the borrower's note, then approve or reject.",
     detail: "Conflicting requests are released",
   },
   {
@@ -40,12 +40,12 @@ const GUARANTEES = [
   {
     icon: ShieldCheckIcon,
     title: "Permissions live in the backend",
-    body: "Every approve, decline, return, and removal is checked inside Convex — not just hidden in the UI.",
+    body: "Every approval, rejection, return, and removal is checked inside Convex — not just hidden in the UI.",
   },
   {
     icon: ClipboardListIcon,
     title: "One request record, full history",
-    body: "A borrow request moves through pending, approved, declined, cancelled, or returned. No duplicate loan table.",
+    body: "A borrow request moves through pending, approved, rejected, cancelled, or returned. No duplicate loan table.",
   },
   {
     icon: ArrowLeftRightIcon,

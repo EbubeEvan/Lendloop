@@ -43,7 +43,7 @@ export function IncomingView() {
       <PageHeader
         eyebrow="Incoming requests"
         title="Neighbors asking for your tools"
-        description="Approve the ones that work for you. Approving a request automatically declines overlapping ones."
+        description="Approve the ones that work for you. Approving a request automatically rejects overlapping ones."
       />
 
       <div className="grid gap-3 sm:grid-cols-3">

@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 const TYPE_LABEL: Record<string, string> = {
   "request.created": "Request created",
   "request.approved": "Request approved",
-  "request.declined": "Request declined",
+  "request.declined": "Request rejected",
   "request.cancelled": "Request cancelled",
   "request.returned": "Request returned",
   "reminder.sent": "Overdue reminder",
