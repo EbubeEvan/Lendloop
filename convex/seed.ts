@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
-import { mutation } from "./_generated/server";
-import { requireViewer } from "./lib/auth";
+import { internalMutation } from "./_generated/server";
 import { addDaysIso, todayIso } from "./lib/dates";
 import { appError } from "./lib/errors";
 
@@ -10,14 +9,30 @@ import { appError } from "./lib/errors";
  * Local-only demo data. Enable with ALLOW_DEV_SEED=true in the Convex
  * deployment environment. Never enable this in production.
  */
-export const seedDemoTools = mutation({
-  args: {},
+export const seedDemoTools = internalMutation({
+  args: {
+    ownerEmail: v.optional(v.string()),
+  },
   returns: v.object({ tools: v.number(), requests: v.number() }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     if (process.env.ALLOW_DEV_SEED !== "true") {
       appError("FORBIDDEN", "Seeding is disabled. Set ALLOW_DEV_SEED=true to enable it.");
     }
-    const viewer = await requireViewer(ctx);
+    const owner = args.ownerEmail
+      ? await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", args.ownerEmail!.trim().toLowerCase()))
+          .unique()
+      : await ctx.db.query("users").first();
+
+    if (!owner) {
+      appError(
+        "NOT_FOUND",
+        args.ownerEmail
+          ? "No neighbor with that email has signed in yet."
+          : "Sign in once before seeding so the demo tools have an owner.",
+      );
+    }
 
     const existing = await ctx.db.query("tools").collect();
     if (existing.length > 0) {
@@ -49,7 +64,7 @@ export const seedDemoTools = mutation({
     const toolIds: Record<string, Id<"tools">> = {};
     const sampleTools = [
       {
-        ownerId: viewer._id,
+        ownerId: owner._id,
         name: "DeWalt 20V cordless drill",
         category: "power-tools" as const,
         condition: "good" as const,
@@ -57,21 +72,21 @@ export const seedDemoTools = mutation({
           "Two batteries, charger, and a full bit set. Great for shelves and furniture assembly.",
       },
       {
-        ownerId: viewer._id,
+        ownerId: owner._id,
         name: "Extension ladder (16 ft)",
         category: "hand-tools" as const,
         condition: "like-new" as const,
         description: "Aluminium ladder, rated to 300 lb. Folds down for easy transport.",
       },
       {
-        ownerId: viewer._id,
+        ownerId: owner._id,
         name: "Cast iron skillet",
         category: "kitchen" as const,
         condition: "well-loved" as const,
         description: "12-inch skillet, seasoned and ready. Please hand wash and re-oil.",
       },
       {
-        ownerId: viewer._id,
+        ownerId: owner._id,
         name: "Two-person camping tent",
         category: "camping" as const,
         condition: "good" as const,
@@ -118,7 +133,7 @@ export const seedDemoTools = mutation({
     if (pendingToolId) {
       await ctx.db.insert("borrowRequests", {
         toolId: pendingToolId,
-        ownerId: viewer._id,
+        ownerId: owner._id,
         borrowerId: neighbor._id,
         startDate: addDaysIso(today, 2),
         endDate: addDaysIso(today, 4),
@@ -134,7 +149,7 @@ export const seedDemoTools = mutation({
     if (overdueToolId) {
       await ctx.db.insert("borrowRequests", {
         toolId: overdueToolId,
-        ownerId: viewer._id,
+        ownerId: owner._id,
         borrowerId: neighbor._id,
         startDate: addDaysIso(today, -5),
         endDate: addDaysIso(today, -2),
