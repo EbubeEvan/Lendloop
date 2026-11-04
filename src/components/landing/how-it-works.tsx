@@ -83,7 +83,10 @@ export function HowItWorks() {
                   <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
                     <Icon className="size-5" />
                   </span>
-                  <span className="font-display text-3xl leading-none font-semibold text-border">
+                  <span
+                    aria-hidden
+                    className="font-display text-3xl leading-none font-semibold text-muted-foreground"
+                  >
                     {String(index + 1).padStart(2, "0")}
                   </span>
                 </div>

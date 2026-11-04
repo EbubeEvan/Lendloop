@@ -10,7 +10,7 @@ export function SetupRequired({ compact = false }: { compact?: boolean }) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm dark:border-amber-400/20 dark:bg-amber-400/10">
         <p className="font-medium text-amber-900 dark:text-amber-100">Demo data needs Convex.</p>
-        <p className="mt-1 text-amber-800/80 dark:text-amber-100/70">
+        <p className="mt-1 text-amber-800 dark:text-amber-100/70">
           Add <code className="font-mono text-xs">NEXT_PUBLIC_CONVEX_URL</code> and run{" "}
           <code className="font-mono text-xs">pnpm convex:dev</code>.
         </p>
