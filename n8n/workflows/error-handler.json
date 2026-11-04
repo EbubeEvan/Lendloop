@@ -1,0 +1,107 @@
+{
+  "name": "LendLoop — Error handler",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst { createHash, createHmac, timingSafeEqual } = require(\"crypto\");\n\nfunction sha256(value) {\n  return createHash(\"sha256\").update(value, \"utf8\").digest(\"hex\");\n}\n\nfunction sign(secret, timestamp, method, path, body) {\n  const canonical = [timestamp, method.toUpperCase(), path, sha256(body)].join(\"\\n\");\n  return \"v1=\" + createHmac(\"sha256\", secret).update(canonical, \"utf8\").digest(\"hex\");\n}\n\nfunction safeEqual(a, b) {\n  const left = Buffer.from(a, \"utf8\");\n  const right = Buffer.from(b, \"utf8\");\n  return left.length === right.length && timingSafeEqual(left, right);\n}\n\n\nconst item = $input.first().json || {};\nconst execution = item.execution || {};\nconst workflow = item.workflow || {};\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nconst base = String($env.CONVEX_SITE_URL || \"\").replace(/\\/+$/, \"\");\nif (!secret || !base) {\n  throw new Error(\"CONVEX_SITE_URL and N8N_TO_CONVEX_SECRET must be set.\");\n}\n\nconst executionId = String(execution.id || \"\");\nconst node = String(execution.lastNodeExecuted || \"\");\nconst message = String(\n  (execution.error && execution.error.message) ||\n  (item.error && item.error.message) ||\n  \"Workflow execution failed.\",\n);\n\nconst payload = {\n  workflow: String(workflow.name || \"Unknown workflow\").slice(0, 120),\n  executionId: executionId.slice(0, 120),\n  node: node.slice(0, 120),\n  message: message.slice(0, 1000),\n};\n\nconst path = \"/http/automation/failures\";\nconst timestamp = String(Date.now());\nconst body = JSON.stringify(payload);\n\nreturn [{\n  json: {\n    url: base + path,\n    headers: {\n      \"content-type\": \"application/json\",\n      \"x-lendloop-timestamp\": timestamp,\n      \"x-lendloop-signature\": sign(secret, timestamp, \"POST\", path, body),\n      \"x-lendloop-event-id\": \"failure:\" + (executionId || node || timestamp),\n    },\n    body,\n  },\n}];\n"
+      },
+      "id": "compose-failure-report",
+      "name": "Compose failure report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.headers['x-lendloop-timestamp'] }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.headers['x-lendloop-signature'] }}"
+            },
+            {
+              "name": "x-lendloop-event-id",
+              "value": "={{ $json.headers['x-lendloop-event-id'] }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      },
+      "id": "report-failure-to-convex",
+      "name": "Report failure to Convex",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ],
+      "retryOnFail": false,
+      "maxTries": 1,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Compose failure report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose failure report": {
+      "main": [
+        [
+          {
+            "node": "Report failure to Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "UTC"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

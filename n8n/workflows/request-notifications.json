@@ -1,0 +1,223 @@
+{
+  "name": "LendLoop — Request notifications",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop/request-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-request-events",
+      "name": "Convex webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        0
+      ],
+      "webhookId": "lendloop-request-events"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst { createHash, createHmac, timingSafeEqual } = require(\"crypto\");\n\nfunction sha256(value) {\n  return createHash(\"sha256\").update(value, \"utf8\").digest(\"hex\");\n}\n\nfunction sign(secret, timestamp, method, path, body) {\n  const canonical = [timestamp, method.toUpperCase(), path, sha256(body)].join(\"\\n\");\n  return \"v1=\" + createHmac(\"sha256\", secret).update(canonical, \"utf8\").digest(\"hex\");\n}\n\nfunction safeEqual(a, b) {\n  const left = Buffer.from(a, \"utf8\");\n  const right = Buffer.from(b, \"utf8\");\n  return left.length === right.length && timingSafeEqual(left, right);\n}\n\n\n// Convex signs the exact request path it called. Keep this in sync with\n// N8N_WEBHOOK_URL in the Convex environment.\nconst WEBHOOK_PATH = \"/webhook/lendloop/request-events\";\nconst MAX_SKEW_MS = 5 * 60 * 1000;\n\nconst secret = $env.CONVEX_TO_N8N_SECRET;\nif (!secret) {\n  return [{ json: { ok: false, reason: \"CONVEX_TO_N8N_SECRET is not configured.\" } }];\n}\n\nconst item = $input.first().json;\nconst headers = item.headers || {};\nconst timestamp = String(headers[\"x-lendloop-timestamp\"] || \"\");\nconst signature = String(headers[\"x-lendloop-signature\"] || \"\");\nconst eventId = String(headers[\"x-lendloop-event-id\"] || \"\");\nconst sentAt = Number(timestamp);\n\nif (!Number.isFinite(sentAt) || Math.abs(Date.now() - sentAt) > MAX_SKEW_MS) {\n  return [{ json: { ok: false, reason: \"Signature timestamp is outside the allowed window.\" } }];\n}\n\n// Convex signs compact JSON, and JSON.parse preserves key order, so\n// re-serialising the parsed body reproduces the signed payload byte for byte.\nconst body = JSON.stringify(item.body || {});\nconst expected = sign(secret, timestamp, \"POST\", WEBHOOK_PATH, body);\n\nif (!safeEqual(expected, signature)) {\n  return [{ json: { ok: false, reason: \"Signature mismatch.\" } }];\n}\n\nreturn [{ json: { ok: true, eventId, payload: item.body || {} } }];\n"
+      },
+      "id": "verify-signature",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "signature-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-signature-valid",
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst { createHash, createHmac, timingSafeEqual } = require(\"crypto\");\n\nfunction sha256(value) {\n  return createHash(\"sha256\").update(value, \"utf8\").digest(\"hex\");\n}\n\nfunction sign(secret, timestamp, method, path, body) {\n  const canonical = [timestamp, method.toUpperCase(), path, sha256(body)].join(\"\\n\");\n  return \"v1=\" + createHmac(\"sha256\", secret).update(canonical, \"utf8\").digest(\"hex\");\n}\n\nfunction safeEqual(a, b) {\n  const left = Buffer.from(a, \"utf8\");\n  const right = Buffer.from(b, \"utf8\");\n  return left.length === right.length && timingSafeEqual(left, right);\n}\n\n\nconst payload = $input.first().json.payload || {};\nconst from = $env.SMTP_FROM || \"lendloop@example.test\";\n\nfunction escapeHtml(value) {\n  return String(value).replace(/[&<>\"']/g, function (character) {\n    return { \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\", \"'\": \"&#39;\" }[character];\n  });\n}\n\nconst copy = {\n  \"request.created\": {\n    subject: \"New request: \" + payload.toolName,\n    intro: payload.counterpartName + \" would like to borrow \" + payload.toolName + \".\",\n    cta: \"Review the request\",\n    path: \"/incoming\",\n  },\n  \"request.approved\": {\n    subject: \"Approved: \" + payload.toolName,\n    intro: payload.counterpartName + \" approved your request for \" + payload.toolName + \".\",\n    cta: \"View your loans\",\n    path: \"/loans\",\n  },\n  \"request.declined\": {\n    subject: \"Declined: \" + payload.toolName,\n    intro: payload.counterpartName + \" declined your request for \" + payload.toolName + \".\",\n    cta: \"Find another tool\",\n    path: \"/browse\",\n  },\n  \"request.cancelled\": {\n    subject: \"Cancelled: \" + payload.toolName,\n    intro: payload.counterpartName + \" cancelled their request for \" + payload.toolName + \".\",\n    cta: \"View your listings\",\n    path: \"/listings\",\n  },\n  \"request.returned\": {\n    subject: \"Returned: \" + payload.toolName,\n    intro: payload.counterpartName + \" marked \" + payload.toolName + \" as returned.\",\n    cta: \"View the loan\",\n    path: \"/loans\",\n  },\n};\n\nconst fallback = copy[\"request.created\"];\nconst content = copy[payload.type] || fallback;\nconst url = (payload.appUrl || \"http://localhost:3000\") + content.path;\nconst safeTool = escapeHtml(payload.toolName);\nconst safeIntro = escapeHtml(content.intro);\n\nconst html =\n  '<div style=\"font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;max-width:560px;margin:0 auto;padding:32px;color:#1f2937;\">' +\n  '<p style=\"font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#0f766e;margin:0 0 8px;\">LendLoop</p>' +\n  '<h1 style=\"font-size:22px;margin:0 0 12px;\">' + safeTool + \"</h1>\" +\n  '<p style=\"line-height:1.6;margin:0 0 8px;\">' + safeIntro + \"</p>\" +\n  '<p style=\"line-height:1.6;margin:0 0 24px;color:#4b5563;\">' +\n  escapeHtml(payload.startDate) + \" &rarr; \" + escapeHtml(payload.endDate) +\n  \" &middot; \" + escapeHtml(payload.status) + \"</p>\" +\n  '<a href=\"' + escapeHtml(url) + '\" style=\"display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-weight:600;\">' +\n  escapeHtml(content.cta) + \"</a>\" +\n  '<p style=\"font-size:12px;color:#9ca3af;margin:32px 0 0;\">You are receiving this because you use LendLoop. Replies are not monitored.</p>' +\n  \"</div>\";\n\nconst text = [\n  content.intro,\n  \"Borrow window: \" + payload.startDate + \" to \" + payload.endDate,\n  \"Status: \" + payload.status,\n  content.cta + \": \" + url,\n].join(\"\\n\");\n\nreturn [{\n  json: {\n    eventId: payload.eventId,\n    mail: {\n      From: { Email: from, Name: \"LendLoop\" },\n      To: [{ Email: payload.recipient.email, Name: payload.recipient.name }],\n      Subject: content.subject,\n      Html: html,\n      Text: text,\n    },\n  },\n}];\n"
+      },
+      "id": "compose-notification",
+      "name": "Compose notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mailpit:8025/api/v1/send",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.mail) }}"
+      },
+      "id": "send-via-mailpit",
+      "name": "Send via Mailpit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        -140
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, eventId: $(\"Compose notification\").item.json.eventId }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-accepted",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1000,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.reason || 'Invalid signature.' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "respond-rejected",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        520,
+        140
+      ]
+    }
+  ],
+  "connections": {
+    "Convex webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
+            "node": "Compose notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose notification": {
+      "main": [
+        [
+          {
+            "node": "Send via Mailpit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via Mailpit": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "UTC"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

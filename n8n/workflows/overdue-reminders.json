@@ -1,0 +1,311 @@
+{
+  "name": "LendLoop — Overdue reminders",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "hoursInterval": 24,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "daily-0900",
+      "name": "Every day at 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst { createHash, createHmac, timingSafeEqual } = require(\"crypto\");\n\nfunction sha256(value) {\n  return createHash(\"sha256\").update(value, \"utf8\").digest(\"hex\");\n}\n\nfunction sign(secret, timestamp, method, path, body) {\n  const canonical = [timestamp, method.toUpperCase(), path, sha256(body)].join(\"\\n\");\n  return \"v1=\" + createHmac(\"sha256\", secret).update(canonical, \"utf8\").digest(\"hex\");\n}\n\nfunction safeEqual(a, b) {\n  const left = Buffer.from(a, \"utf8\");\n  const right = Buffer.from(b, \"utf8\");\n  return left.length === right.length && timingSafeEqual(left, right);\n}\n\n\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nconst base = String($env.CONVEX_SITE_URL || \"\").replace(/\\/+$/, \"\");\nif (!secret || !base) {\n  throw new Error(\"CONVEX_SITE_URL and N8N_TO_CONVEX_SECRET must be set.\");\n}\n\nconst path = \"/http/automation/overdue\";\nconst timestamp = String(Date.now());\n\nreturn [{\n  json: {\n    url: base + path,\n    timestamp,\n    signature: sign(secret, timestamp, \"GET\", path, \"\"),\n  },\n}];\n"
+      },
+      "id": "sign-overdue-request",
+      "name": "Sign overdue request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "fetch-overdue-loans",
+      "name": "Fetch overdue loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst today = new Date().toISOString().slice(0, 10);\nconst response = $input.first().json || {};\nconst loans = Array.isArray(response.loans) ? response.loans : [];\n\n// A retry or a manual re-run on the same UTC day must not email twice.\nreturn loans\n  .filter(function (loan) {\n    return loan.lastRemindedOn !== today;\n  })\n  .map(function (loan) {\n    return { json: loan };\n  });\n"
+      },
+      "id": "skip-already-reminded",
+      "name": "Skip already reminded",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "loop-over-loans",
+      "name": "Loop over loans",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "\nconst { createHash, createHmac, timingSafeEqual } = require(\"crypto\");\n\nfunction sha256(value) {\n  return createHash(\"sha256\").update(value, \"utf8\").digest(\"hex\");\n}\n\nfunction sign(secret, timestamp, method, path, body) {\n  const canonical = [timestamp, method.toUpperCase(), path, sha256(body)].join(\"\\n\");\n  return \"v1=\" + createHmac(\"sha256\", secret).update(canonical, \"utf8\").digest(\"hex\");\n}\n\nfunction safeEqual(a, b) {\n  const left = Buffer.from(a, \"utf8\");\n  const right = Buffer.from(b, \"utf8\");\n  return left.length === right.length && timingSafeEqual(left, right);\n}\n\n\nconst loan = $input.first().json;\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nconst base = String($env.CONVEX_SITE_URL || \"\").replace(/\\/+$/, \"\");\nconst from = $env.SMTP_FROM || \"lendloop@example.test\";\nif (!secret || !base) {\n  throw new Error(\"CONVEX_SITE_URL and N8N_TO_CONVEX_SECRET must be set.\");\n}\n\nfunction escapeHtml(value) {\n  return String(value).replace(/[&<>\"']/g, function (character) {\n    return { \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\", \"'\": \"&#39;\" }[character];\n  });\n}\n\nconst sentAt = Date.now();\nconst day = new Date(sentAt).toISOString().slice(0, 10);\nconst eventId = \"overdue:\" + loan.requestId + \":\" + day;\nconst path = \"/http/automation/reminders\";\nconst body = JSON.stringify({ requestId: loan.requestId, sentAt, channel: \"email\" });\n\nconst due = new Date(loan.endDate + \"T00:00:00Z\").getTime();\nconst daysOverdue = Math.max(1, Math.round((Date.now() - due) / 86400000));\nconst safeTool = escapeHtml(loan.toolName);\nconst url = String($env.APP_URL || \"http://localhost:3000\") + \"/loans\";\n\nconst html =\n  '<div style=\"font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;max-width:560px;margin:0 auto;padding:32px;color:#1f2937;\">' +\n  '<p style=\"font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#b45309;margin:0 0 8px;\">Overdue reminder</p>' +\n  '<h1 style=\"font-size:22px;margin:0 0 12px;\">' + safeTool + \" is \" + daysOverdue + \" day\" + (daysOverdue === 1 ? \"\" : \"s\") + \" overdue</h1>\" +\n  '<p style=\"line-height:1.6;margin:0 0 8px;\">Hi ' + escapeHtml(loan.borrowerName) + \", the loan was due on \" + escapeHtml(loan.endDate) + \".</p>\" +\n  '<p style=\"line-height:1.6;margin:0 0 24px;color:#4b5563;\">Return it to keep the neighborhood shelf healthy, or ask the owner for more time.</p>' +\n  '<a href=\"' + escapeHtml(url) + '\" style=\"display:inline-block;background:#b45309;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-weight:600;\">Open my loans</a>' +\n  '<p style=\"font-size:12px;color:#9ca3af;margin:32px 0 0;\">You will get at most one reminder per day for this loan.</p>' +\n  \"</div>\";\n\nreturn [{\n  json: {\n    mail: {\n      From: { Email: from, Name: \"LendLoop\" },\n      To: [{ Email: loan.borrowerEmail, Name: loan.borrowerName }],\n      Subject: \"Overdue: \" + loan.toolName + \" was due \" + loan.endDate,\n      Html: html,\n      Text: \"Hi \" + loan.borrowerName + \", \" + loan.toolName + \" was due on \" + loan.endDate + \" (\" + daysOverdue + \" day(s) overdue). Open \" + url + \" to return it.\",\n    },\n    writeBack: {\n      url: base + path,\n      headers: {\n        \"content-type\": \"application/json\",\n        \"x-lendloop-timestamp\": String(sentAt),\n        \"x-lendloop-signature\": sign(secret, String(sentAt), \"POST\", path, body),\n        \"x-lendloop-event-id\": eventId,\n      },\n      body,\n    },\n  },\n}];\n"
+      },
+      "id": "compose-reminder",
+      "name": "Compose reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mailpit:8025/api/v1/send",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.mail) }}"
+      },
+      "id": "send-reminder-email",
+      "name": "Send reminder email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        160
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Compose reminder\").item.json.writeBack.url }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $(\"Compose reminder\").item.json.writeBack.headers[\"x-lendloop-timestamp\"] }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $(\"Compose reminder\").item.json.writeBack.headers[\"x-lendloop-signature\"] }}"
+            },
+            {
+              "name": "x-lendloop-event-id",
+              "value": "={{ $(\"Compose reminder\").item.json.writeBack.headers[\"x-lendloop-event-id\"] }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $(\"Compose reminder\").item.json.writeBack.body }}"
+      },
+      "id": "record-reminder-in-convex",
+      "name": "Record reminder in Convex",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        160
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {},
+      "id": "no-more-loans",
+      "name": "Done for today",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        940,
+        -140
+      ]
+    }
+  ],
+  "connections": {
+    "Every day at 09:00": {
+      "main": [
+        [
+          {
+            "node": "Sign overdue request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign overdue request": {
+      "main": [
+        [
+          {
+            "node": "Fetch overdue loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch overdue loans": {
+      "main": [
+        [
+          {
+            "node": "Skip already reminded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip already reminded": {
+      "main": [
+        [
+          {
+            "node": "Loop over loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop over loans": {
+      "main": [
+        [
+          {
+            "node": "Done for today",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose reminder": {
+      "main": [
+        [
+          {
+            "node": "Send reminder email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send reminder email": {
+      "main": [
+        [
+          {
+            "node": "Record reminder in Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record reminder in Convex": {
+      "main": [
+        [
+          {
+            "node": "Loop over loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "UTC",
+    "executionTimeout": 7200
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
